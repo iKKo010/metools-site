@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRT字幕去时间码工具</title>
+    <style>
+        /* 全局样式重置与基础设置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+        }
+
+        /* 页面背景渐变 */
+        body {
+            background: linear-gradient(135deg, #e8f4f8 0%, #f0f8fb 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* 主容器美化 */
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(15, 70, 100, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .container:hover {
+            box-shadow: 0 12px 40px rgba(15, 70, 100, 0.12);
+        }
+
+        /* 标题样式 - 渐变文字 */
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 40px;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #4299e1 0%, #38b2ac 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+
+        h1::after {
+            content: "";
+            display: block;
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(135deg, #4299e1 0%, #38b2ac 100%);
+            border-radius: 3px;
+            margin: 15px auto 0;
+        }
+
+        /* 输入/结果区域通用样式 */
+        .input-area, .result-area {
+            margin-bottom: 35px;
+        }
+
+        .result-area {
+            padding-top: 25px;
+            border-top: 1px solid #e8f4f8;
+        }
+
+        /* 区域标题样式 */
+        .input-title {
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-title::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: #4299e1;
+            border-radius: 2px;
+            margin-right: 8px;
+        }
+
+        /* 文件上传区域美化 */
+        .file-upload {
+            margin-bottom: 20px;
+            padding: 30px;
+            border: 2px dashed #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #f8fafc;
+            text-align: center;
+        }
+
+        .file-upload:hover {
+            border-color: #4299e1;
+            background-color: #f0f8fb;
+            transform: translateY(-2px);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-tip {
+            color: #718096;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* 文本框美化 */
+        textarea {
+            width: 100%;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            resize: vertical;
+            min-height: 320px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            background-color: #f8fafc;
+            transition: all 0.3s ease;
+            color: #2d3748;
+        }
+
+        textarea::placeholder {
+            color: #a0aec0;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 4px rgba(66, 153, 225, 0.1);
+            background-color: #ffffff;
+        }
+
+        #resultText {
+            background-color: #fefefe;
+        }
+
+        /* 按钮组样式 */
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        /* 按钮美化 - 渐变背景+交互动效 */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4299e1 0%, #38b2ac 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #67c23a 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #9f7aea 0%, #909399 100%);
+            color: white;
+        }
+
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(159, 122, 234, 0.3);
+        }
+
+        /* 提示文字样式 */
+        .tip-text, .copy-success {
+            font-size: 15px;
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .tip-text {
+            color: #e53e3e;
+            background-color: #fef2f2;
+            border: 1px solid #fee2e2;
+            display: none;
+            text-align: center;
+        }
+
+        .copy-success {
+            color: #10b981;
+            background-color: #f0fdf4;
+            border: 1px solid #dcfce7;
+            display: none;
+            text-align: center;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        /* 动画效果 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 25px 20px;
+                margin: 20px auto;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            textarea {
+                min-height: 250px;
+                padding: 14px;
+            }
+
+            .btn {
+                padding: 10px 20px;
+                width: 100%;
+            }
+
+            .file-upload {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SRT字幕去时间码工具</h1>
+        
+        <!-- 输入区域 -->
+        <div class="input-area">
+            <div class="input-title">方式一：上传SRT文件</div>
+            <label class="file-upload" for="fileInput">
+                <input type="file" id="fileInput" accept=".srt">
+                <div class="file-tip">📁 点击区域上传.srt文件，或拖拽文件到此处</div>
+            </label>
+
+            <div class="input-title">方式二：粘贴SRT文本内容</div>
+            <textarea id="srtText" placeholder="请粘贴SRT格式的文本内容（支持任意长度）..."></textarea>
+            
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="processSRT()">✨ 开始转换</button>
+                <button class="btn btn-info" onclick="clearInput()">🗑️ 清空输入</button>
+            </div>
+        </div>
+
+        <!-- 结果区域 -->
+        <div class="result-area">
+            <div class="input-title">转换结果</div>
+            <textarea id="resultText" readonly placeholder="转换后的纯文本内容将显示在这里..."></textarea>
+            
+            <div class="btn-group">
+                <button class="btn btn-success" onclick="copyResult()">📋 一键复制结果</button>
+                <button class="btn btn-success" onclick="saveResult()">💾 保存为文本文档</button>
+            </div>
+            
+            <div class="copy-success" id="copySuccess">✓ 复制成功！内容已保存到剪贴板</div>
+            <div class="tip-text" id="emptyTip">⚠️ 请上传SRT文件或粘贴SRT文本内容！</div>
+        </div>
+    </div>
+
+    <script>
+        // 监听文件上传（支持大文件读取，无长度限制）
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 校验文件类型
+            if (file.name.split('.').pop().toLowerCase() !== 'srt') {
+                alert('请上传后缀为.srt的文件！');
+                this.value = '';
+                return;
+            }
+
+            // 读取文件内容（支持大文件，按UTF-8编码）
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                document.getElementById('srtText').value = event.target.result;
+            };
+            reader.readAsText(file, 'utf-8');
+        });
+
+        // 处理SRT内容（核心逻辑，无内容长度限制）
+        function processSRT() {
+            const srtContent = document.getElementById('srtText').value.trim();
+            const emptyTip = document.getElementById('emptyTip');
+            const resultText = document.getElementById('resultText');
+
+            // 清空提示
+            emptyTip.style.display = 'none';
+            document.getElementById('copySuccess').style.display = 'none';
+
+            // 校验输入是否为空
+            if (!srtContent) {
+                emptyTip.style.display = 'block';
+                resultText.value = '';
+                return;
+            }
+
+            // 分割行并过滤（支持任意行数的SRT内容）
+            const lines = srtContent.split(/\r?\n/);
+            const pureText = lines.filter(line => {
+                const trimLine = line.trim();
+                // 过滤：序号行（纯数字）、时间码行（包含-->）、空行保留
+                return !(
+                    /^\d+$/.test(trimLine) ||  // 纯数字行（序号）
+                    trimLine.includes('-->')    // 时间码行
+                );
+            }).join('\n');
+
+            // 显示结果（结果框同步优化了高度，支持滚动）
+            resultText.value = pureText;
+        }
+
+        // 清空输入
+        function clearInput() {
+            document.getElementById('srtText').value = '';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('resultText').value = '';
+            document.getElementById('emptyTip').style.display = 'none';
+            document.getElementById('copySuccess').style.display = 'none';
+        }
+
+        // 复制结果（支持长文本复制）
+        function copyResult() {
+            const resultContent = document.getElementById('resultText').value.trim();
+            if (!resultContent) {
+                alert('暂无可复制的内容！');
+                return;
+            }
+
+            // 复制到剪贴板（兼容长文本）
+            navigator.clipboard.writeText(resultContent).then(() => {
+                const copySuccess = document.getElementById('copySuccess');
+                copySuccess.style.display = 'block';
+                setTimeout(() => {
+                    copySuccess.style.display = 'none';
+                }, 3000);
+            }).catch(() => {
+                // 备用方案（兼容低版本浏览器和长文本）
+                const resultText = document.getElementById('resultText');
+                resultText.select();
+                resultText.setSelectionRange(0, 99999); // 选中全部内容（支持超长文本）
+                document.execCommand('copy');
+                alert('复制成功！');
+            });
+        }
+
+        // 保存结果（支持长文本保存为文件）
+        function saveResult() {
+            const resultContent = document.getElementById('resultText').value.trim();
+            if (!resultContent) {
+                alert('暂无可保存的内容！');
+                return;
+            }
+
+            // 创建Blob对象（支持UTF-8编码和长文本）
+            const blob = new Blob([resultContent], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'SRT纯文本_' + new Date().getTime() + '.txt';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+    </script>
+</body>
+</html>

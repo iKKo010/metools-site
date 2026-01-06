@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>我的小工具集合</title>
+<style>
+  :root{--bg:#f6f8fb;--card:#fff;--accent:#4f46e5;--muted:#6b7280}
+  *{box-sizing:border-box}
+  body{font-family:Inter, "Microsoft YaHei", Arial; margin:0; background:var(--bg); color:#111}
+  .wrap{max-width:1100px; margin:36px auto; padding:24px}
+  header{display:flex;align-items:center;gap:12px}
+  header h1{margin:0;font-size:22px}
+  header p{margin:0;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;margin-top:20px}
+  .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 20px rgba(15,23,42,0.06);display:flex;flex-direction:column;gap:8px}
+  .card h3{margin:0;font-size:16px}
+  .card p{margin:0;color:var(--muted);font-size:13px}
+  .card .meta{font-size:12px;color:var(--muted);margin-top:6px}
+  .row{display:flex;gap:8px;margin-top:auto}
+  .btn{padding:8px 12px;border-radius:8px;border:0;cursor:pointer;font-weight:600}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#6d28d9);color:white}
+  .btn.ghost{background:transparent;border:1px solid #e6e9f5;color:var(--accent)}
+  footer{margin-top:28px;color:var(--muted);font-size:13px;text-align:center}
+  /* modal iframe */
+  .modal{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal .box{width:100%;max-width:1000px;height:80vh;background:white;border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+  .modal .toolbar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fafafa;border-bottom:1px solid #eee}
+  .modal iframe{flex:1;border:0;width:100%}
+  .search{margin-left:auto}
+  input[type="search"]{padding:8px 10px;border-radius:8px;border:1px solid #e6e8f0}
+  /* responsive */
+  @media (max-width:520px){header{flex-direction:column;align-items:flex-start} .row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;color:white;font-weight:700">TO</div>
+    <div>
+      <h1>小工具集合</h1>
+      <p>把常用的小工具放在这里 — 点击“打开”即可在新页或内嵌模式运行</p>
+    </div>
+
+    <div class="search" style="margin-left:14px">
+      <input id="q" type="search" placeholder="搜索工具..." oninput="renderTools()" />
+    </div>
+  </header>
+
+  <div id="grid" class="grid" aria-live="polite"></div>
+
+  <footer>
+    纯静态前端 ｜ 本地运行，不上传你的文件到任何服务器。要添加工具：把 .html 文件上传到仓库并在 tools.json 中添加一条记录。
+  </footer>
+</div>
+
+<!-- modal preview -->
+<div id="modal" class="modal" role="dialog" aria-hidden="true">
+  <div class="box">
+    <div class="toolbar">
+      <div id="modalTitle">工具预览</div>
+      <div>
+        <button onclick="closeModal()" class="btn ghost">关闭</button>
+        <a id="openNew" class="btn primary" target="_blank" rel="noopener">在新页打开</a>
+      </div>
+    </div>
+    <iframe id="previewFrame" src=""></iframe>
+  </div>
+</div>
+
+<script>
+/**
+ * 默认工具清单（若要你也可直接改 tools.json）
+ * 文件名最好放在仓库根，若文件名含中文也可用，但推荐使用 ASCII 名称
+ */
+const defaultTools = [
+  {
+    "title": "SRT 去时间码",
+    "desc": "把 .srt 字幕里的时间码去掉，保留纯文字",
+    "file": "srt.html"
+  },
+  {
+    "title": "PDF → PNG",
+    "desc": "把 PDF 每页导出为无损 PNG 并打包下载",
+    "file": "pdf-to-png.html"
+  },
+  {
+    "title": "图片压缩",
+    "desc": "按目标大小压缩图片（JPG 输出）",
+    "file": "image-compress.html"
+  }
+];
+
+let tools = [];
+
+async function loadTools() {
+  // 尝试从 tools.json 加载清单（优先），否则用内置 defaultTools
+  try {
+    const r = await fetch('tools.json', {cache: 'no-cache'});
+    if (r.ok) {
+      tools = await r.json();
+      if (!Array.isArray(tools)) throw new Error('tools.json must be an array');
+    } else {
+      tools = defaultTools;
+    }
+  } catch (e) {
+    tools = defaultTools;
+  }
+  renderTools();
+}
+
+function renderTools() {
+  const q = (document.getElementById('q').value || '').trim().toLowerCase();
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  const list = tools.filter(t => !q || (t.title + ' ' + (t.desc||'') ).toLowerCase().includes(q));
+  if (list.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:18px;background:#fff;border-radius:10px;text-align:center;color:#666">未找到符合条件的工具</div>';
+    return;
+  }
+  list.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `<h3>${t.title}</h3>
+      <p>${t.desc || ''}</p>
+      <div class="meta">文件：<code style="font-size:12px">${t.file}</code></div>
+      <div class="row">
+        <button class="btn primary" onclick='openModal("${encodeURIComponent(t.file)}","${escapeHtml(t.title)}")'>预览</button>
+        <a class="btn ghost" href="${encodeURI(t.file)}" target="_blank" rel="noopener">在新页打开</a>
+      </div>`;
+    grid.appendChild(div);
+  });
+}
+
+function openModal(fileEnc, title) {
+  const file = decodeURIComponent(fileEnc);
+  const modal = document.getElementById('modal');
+  const iframe = document.getElementById('previewFrame');
+  document.getElementById('modalTitle').textContent = title;
+  iframe.src = file;
+  document.getElementById('openNew').href = file;
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+}
+
+function closeModal() {
+  const modal = document.getElementById('modal');
+  const iframe = document.getElementById('previewFrame');
+  iframe.src = 'about:blank';
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden','true');
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+
+loadTools();
+</script>
+</body>
+</html>

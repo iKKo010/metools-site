@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF转图片工具</title>
+    <!-- 引入Tailwind CSS做样式 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入PDF.js核心库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js"></script>
+    <!-- 引入JSZip用于生成压缩包 -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- 引入FileSaver用于下载文件 -->
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <!-- 自定义Tailwind配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#6366F1',
+                        neutral: '#1F2937',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .upload-area-hover {
+                @apply border-primary bg-indigo-50/50;
+            }
+            .progress-bar-animate {
+                background-size: 200% 100%;
+                animation: progressMove 1s linear infinite;
+            }
+            @keyframes progressMove {
+                0% { background-position: 0 0; }
+                100% { background-position: 200% 0; }
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-white rounded-2xl shadow-lg p-6 md:p-8">
+        <h1 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-neutral text-center mb-6">PDF转无损图片工具</h1>
+        
+        <!-- 上传区域 -->
+        <div id="uploadArea" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center transition-all duration-300 hover:upload-area-hover cursor-pointer mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p class="text-gray-600 mb-2">点击或拖拽PDF文件到此处上传</p>
+            <p class="text-xs text-gray-400">无文件大小限制 | 无损转换 | 按页码命名</p>
+            <input type="file" id="fileInput" accept=".pdf" class="hidden" />
+        </div>
+
+        <!-- 进度区域（初始隐藏） -->
+        <div id="progressArea" class="hidden mb-6">
+            <div class="text-gray-700 mb-2 flex justify-between items-center">
+                <span id="progressText">准备转换...</span>
+                <span id="pageCountText">0/0 页</span>
+            </div>
+            <div class="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div id="progressBar" class="h-full bg-primary progress-bar-animate rounded-full w-0"></div>
+            </div>
+        </div>
+
+        <!-- 下载按钮（初始隐藏） -->
+        <button id="downloadBtn" class="hidden w-full bg-primary hover:bg-secondary text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="inline-block h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            下载压缩包
+        </button>
+
+        <!-- 错误提示（初始隐藏） -->
+        <div id="errorMsg" class="hidden mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm"></div>
+    </div>
+
+    <footer class="mt-8 text-xs text-gray-500 text-center">
+        纯前端处理 | 数据仅在本地运行，不会上传至服务器
+    </footer>
+
+    <script>
+        // 初始化PDF.js的worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js';
+
+        // DOM元素获取
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const progressArea = document.getElementById('progressArea');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const pageCountText = document.getElementById('pageCountText');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const errorMsg = document.getElementById('errorMsg');
+
+        // 上传区域点击触发文件选择
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 拖拽文件处理
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('upload-area-hover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('upload-area-hover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('upload-area-hover');
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.type === 'application/pdf') {
+                    handlePDF(file);
+                } else {
+                    showError('请上传PDF格式的文件！');
+                }
+            }
+        });
+
+        // 文件选择后处理
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                if (file.type === 'application/pdf') {
+                    handlePDF(file);
+                } else {
+                    showError('请上传PDF格式的文件！');
+                }
+            }
+        });
+
+        /**
+         * 核心处理函数：PDF转图片并打包
+         * @param {File} pdfFile - 上传的PDF文件
+         */
+        async function handlePDF(pdfFile) {
+            try {
+                // 重置状态
+                resetState();
+                // 显示进度区域
+                progressArea.classList.remove('hidden');
+                progressText.textContent = '正在加载PDF...';
+
+                // 1. 加载PDF文件
+                const pdfData = new Uint8Array(await readFileAsArrayBuffer(pdfFile));
+                const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+                const totalPages = pdfDoc.numPages;
+                pageCountText.textContent = `0/${totalPages} 页`;
+
+                // 2. 逐页渲染PDF为无损PNG图片
+                const zip = new JSZip();
+                const imagePromises = [];
+
+                for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                    imagePromises.push((async () => {
+                        // 获取当前页
+                        const page = await pdfDoc.getPage(pageNum);
+                        // 获取PDF页面原始尺寸（保证无损）
+                        const viewport = page.getViewport({ scale: 1 });
+                        // 创建canvas渲染
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+
+                        // 渲染页面到canvas
+                        await page.render({
+                            canvasContext: ctx,
+                            viewport: viewport
+                        }).promise;
+
+                        // 将canvas转为base64格式的PNG（无损）
+                        const imageDataUrl = canvas.toDataURL('image/png');
+                        // 转换为blob格式用于打包
+                        const imageBlob = await dataURLToBlob(imageDataUrl);
+                        // 添加到压缩包，按顺序命名（page_1.png, page_2.png...）
+                        zip.file(`page_${pageNum}.png`, imageBlob);
+
+                        // 更新进度
+                        updateProgress(pageNum, totalPages, '转换中...');
+                    })());
+                }
+
+                // 等待所有页面转换完成
+                await Promise.all(imagePromises);
+                progressText.textContent = '正在生成压缩包...';
+
+                // 3. 生成压缩包并下载
+                const zipContent = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'STORE' // 无压缩（保持图片无损），如需压缩可改为DEFLATE
+                });
+
+                // 设置压缩包名称（原PDF名 + _converted.zip）
+                const zipFileName = `${pdfFile.name.replace(/\.pdf$/i, '')}_converted.zip`;
+                
+                // 显示下载按钮
+                progressText.textContent = '转换完成！';
+                downloadBtn.classList.remove('hidden');
+                // 绑定下载事件
+                downloadBtn.onclick = () => {
+                    saveAs(zipContent, zipFileName);
+                };
+
+            } catch (err) {
+                console.error('转换失败：', err);
+                showError(`转换失败：${err.message || '未知错误，请重试！'}`);
+            }
+        }
+
+        /**
+         * 工具函数：File转ArrayBuffer
+         * @param {File} file - 上传的文件
+         * @returns {Promise<ArrayBuffer>}
+         */
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        /**
+         * 工具函数：DataURL转Blob
+         * @param {string} dataUrl - canvas生成的DataURL
+         * @returns {Promise<Blob>}
+         */
+        function dataURLToBlob(dataUrl) {
+            return new Promise((resolve) => {
+                const arr = dataUrl.split(',');
+                const mime = arr[0].match(/:(.*?);/)[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                resolve(new Blob([u8arr], { type: mime }));
+            });
+        }
+
+        /**
+         * 更新进度条和文本
+         * @param {number} current - 当前页数
+         * @param {number} total - 总页数
+         * @param {string} text - 进度文本
+         */
+        function updateProgress(current, total, text) {
+            const progress = (current / total) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = text;
+            pageCountText.textContent = `${current}/${total} 页`;
+        }
+
+        /**
+         * 显示错误信息
+         * @param {string} msg - 错误信息
+         */
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.remove('hidden');
+            progressArea.classList.add('hidden');
+        }
+
+        /**
+         * 重置所有状态
+         */
+        function resetState() {
+            progressBar.style.width = '0%';
+            progressText.textContent = '准备转换...';
+            pageCountText.textContent = '0/0 页';
+            errorMsg.classList.add('hidden');
+            downloadBtn.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

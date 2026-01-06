@@ -1,0 +1,17 @@
+[
+  {
+    "title": "SRT 去时间码",
+    "desc": "把 .srt 字幕里的时间码去掉，保留纯文字",
+    "file": "srt.html"
+  },
+  {
+    "title": "PDF → PNG",
+    "desc": "把 PDF 每页导出为无损 PNG 并打包下载",
+    "file": "pdf-to-png.html"
+  },
+  {
+    "title": "图片压缩",
+    "desc": "按目标大小压缩图片（JPG 输出）",
+    "file": "image-compress.html"
+  }
+]
