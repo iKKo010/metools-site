@@ -1,96 +1,66 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>工具箱 — 简洁版</title>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>工具箱 — 暗色</title>
 <style>
-  :root{
-    --bg:#ffffff;
-    --surface:#fbfdff;
-    --accent:#0f62fe; /* 主色，可改 */
-    --muted:#6b7280;
-    --card-radius:12px;
-    --maxw:980px;
-  }
+  :root{--bg:#0b1020;--card:#0f1724;--accent:#ff7b72;--muted:#9aa3b2}
   *{box-sizing:border-box}
-  body{font-family: "Inter",-apple-system, "Microsoft YaHei", sans-serif; margin:0; background:var(--bg); color:#0b1220}
-  .wrap{max-width:var(--maxw);margin:28px auto;padding:20px}
-  header{display:flex;gap:14px;align-items:center}
-  .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#6c3cff);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
-  h1{margin:0;font-size:18px}
-  p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+  body{margin:0;font-family:Inter, "Microsoft YaHei", sans-serif;background:var(--bg);color:#eef2ff}
+  .wrap{max-width:1100px;margin:36px auto;padding:20px}
+  header{display:flex;align-items:center;gap:12px}
+  .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#a34bff);display:flex;align-items:center;justify-content:center;font-weight:700}
+  h1{margin:0;font-size:20px}
   .search{margin-left:auto}
-  input[type=search]{padding:8px 12px;border-radius:10px;border:1px solid #e8eefc;width:220px}
-  main{margin-top:18px}
-  ul.tools{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
-  li.tool{background:var(--surface);border-radius:var(--card-radius);padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 14px rgba(15,23,42,0.06)}
-  .t-title{font-weight:600}
-  .t-desc{color:var(--muted);font-size:13px}
-  .row{margin-top:auto;display:flex;gap:8px}
-  .btn{padding:7px 10px;border-radius:8px;border:0;cursor:pointer;font-weight:600}
-  .btn.open{background:linear-gradient(90deg,var(--accent),#7b3bff);color:white}
-  .btn.new{background:transparent;border:1px solid #e6e9f5;color:var(--accent)}
-  footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
-  @media (max-width:560px){.search{display:none}}
+  input{background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit;padding:8px 12px;border-radius:10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:18px}
+  .card{background:var(--card);padding:14px;border-radius:12px;transition:transform .15s,box-shadow .15s}
+  .card:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(8,10,20,0.6)}
+  .title{font-weight:700}
+  .desc{color:var(--muted);font-size:13px;margin:8px 0}
+  .meta{font-size:12px;color:var(--muted)}
+  .actions{display:flex;gap:8px;margin-top:10px}
+  .btn{padding:8px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:600}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#7b3bff);color:#0b0b0b}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.05);color:var(--muted)}
+  footer{margin-top:22px;color:var(--muted);text-align:center}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="logo">TO</div>
-    <div>
-      <h1>我的工具箱</h1>
-      <p class="lead">快速打开、预览并管理各类静态工具</p>
-    </div>
-    <div class="search">
-      <input id="q" type="search" placeholder="搜索工具..." oninput="render()"/>
-    </div>
+    <div><h1>工具箱（暗）</h1><div style="color:var(--muted);font-size:13px">漂亮的工具卡片视图</div></div>
+    <div class="search"><input id="q" placeholder="搜索..." oninput="render()"/></div>
   </header>
 
-  <main>
-    <ul id="tools" class="tools" aria-live="polite"></ul>
-  </main>
-
-  <footer>把新的工具 `.html` 放到仓库根并在 <code>tools.json</code> 添加记录即可自动显示。</footer>
+  <div id="grid" class="grid"></div>
+  <footer>把新工具加入 <code>tools.json</code> 即可自动显示。</footer>
 </div>
 
 <script>
 const defaultTools = [
-  {"title":"SRT 去时间码","desc":"去掉 SRT 时间码，保留文本","file":"srt.html"},
-  {"title":"PDF → PNG","desc":"导出 PDF 每页为 PNG","file":"pdf-to-png.html"},
-  {"title":"图片压缩","desc":"按目标大小压缩图片","file":"image-compress.html"}
+  {"title":"SRT 去时间码","desc":"去 SRT 时间戳","file":"srt.html"},
+  {"title":"PDF→PNG","desc":"导出PNG","file":"pdf-to-png.html"},
+  {"title":"图片压缩","desc":"按大小压缩","file":"image-compress.html"}
 ];
-let tools = [];
-async function load(){
-  try{
-    const r = await fetch('tools.json',{cache:'no-cache'});
-    if(r.ok) tools = await r.json();
-    else tools = defaultTools;
-  }catch(e){tools=defaultTools}
-  render();
-}
+let tools=[];
+async function load(){ try{ const r=await fetch('tools.json',{cache:'no-cache'}); if(r.ok) tools=await r.json(); else tools=defaultTools}catch(e){tools=defaultTools} render(); }
 function render(){
-  const q = (document.getElementById('q').value||'').toLowerCase().trim();
-  const ul = document.getElementById('tools'); ul.innerHTML='';
-  const list = tools.filter(t=>!q || (t.title+t.desc).toLowerCase().includes(q));
-  if(list.length===0){ ul.innerHTML = '<li style="grid-column:1/-1;color:#666;padding:12px;background:#fff;border-radius:10px">未找到工具</li>'; return; }
+  const q=(document.getElementById('q').value||'').toLowerCase().trim();
+  const g=document.getElementById('grid'); g.innerHTML='';
+  const list=tools.filter(t=>!q || (t.title+t.desc).toLowerCase().includes(q));
+  if(!list.length){ g.innerHTML='<div style="grid-column:1/-1;color:#9aa3b2;padding:12px;background:transparent;border-radius:8px">无匹配结果</div>'; return }
   list.forEach(t=>{
-    const li = document.createElement('li'); li.className='tool';
-    li.innerHTML = `<div><div class="t-title">${escape(t.title)}</div><div class="t-desc">${escape(t.desc||'')}</div></div>
-      <div class="row">
-        <button class="btn open" onclick="openTool('${encodeURIComponent(t.file)}')">预览</button>
-        <a class="btn new" href="${encodeURI(t.file)}" target="_blank" rel="noopener">新页打开</a>
-      </div>`;
-    ul.appendChild(li);
+    const d=document.createElement('div'); d.className='card';
+    d.innerHTML = `<div class="title">${e(t.title)}</div><div class="desc">${e(t.desc||'')}</div><div class="meta">文件：${e(t.file)}</div>
+      <div class="actions"><button class="btn primary" onclick="openP('${encodeURIComponent(t.file)}')">打开</button>
+      <a class="btn ghost" href="${encodeURI(t.file)}" target="_blank">新页打开</a></div>`;
+    g.appendChild(d);
   });
 }
-function openTool(f){
-  const file = decodeURIComponent(f);
-  const w = window.open(file,'_blank');
-  if(!w) alert('请允许弹窗以在新页打开工具');
-}
-function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function openP(f){ const file=decodeURIComponent(f); window.open(file,'_blank') }
+function e(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 load();
 </script>
 </body>
